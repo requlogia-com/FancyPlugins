@@ -24,3 +24,9 @@ tasks {
         options.release = 25
     }
 }
+
+dependencies {
+    constraints {
+        compileOnly("net.kyori:adventure-text-serializer-ansi:4.26.1")
+    }
+}

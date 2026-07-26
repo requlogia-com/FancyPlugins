@@ -2,9 +2,8 @@ package com.fancyinnovations.fancynpcsmodel.commands.npc;
 
 import com.fancyinnovations.fancynpcsmodel.fancynpcshook.CustomModelAttribute;
 import com.fancyinnovations.fancynpcsmodel.utils.FancyContext;
+import com.ticxo.modelengine.api.model.ActiveModel;
 import de.oliver.fancynpcs.api.Npc;
-import kr.toxicity.model.api.animation.AnimationModifier;
-import kr.toxicity.model.api.tracker.EntityTracker;
 import org.bukkit.command.CommandSender;
 import org.incendo.cloud.annotations.Argument;
 import org.incendo.cloud.annotations.Command;
@@ -41,30 +40,34 @@ public class PlayAnimationCMD extends FancyContext {
             return;
         }
 
-        EntityTracker tracker = CustomModelAttribute.getEntityTracker(npc);
-
-        AnimationModifier modifier = loop ? AnimationModifier.DEFAULT : AnimationModifier.DEFAULT_WITH_PLAY_ONCE;
-        if (!tracker.animate(animation, modifier)) {
-            translator.translate("commands.npc.play_animation.failed")
+        CustomModelAttribute.AnimationResult result = CustomModelAttribute.playAnimation(npc, animation, loop);
+        switch (result) {
+            case NO_MODEL -> translator.translate("commands.npc.play_animation.no_model_assigned")
+                    .withPrefix()
+                    .replace("npc", npc.getData().getName())
+                    .send(sender);
+            case NO_ANIMATIONS -> translator.translate("commands.npc.play_animation.no_animations")
+                    .withPrefix()
+                    .replace("npc", npc.getData().getName())
+                    .send(sender);
+            case NOT_FOUND, FAILED -> translator.translate("commands.npc.play_animation.failed")
                     .withPrefix()
                     .replace("npc", npc.getData().getName())
                     .replace("animation", animation)
                     .send(sender);
-            return;
+            case SUCCESS -> translator.translate("commands.npc.play_animation.playing")
+                    .withPrefix()
+                    .replace("npc", npc.getData().getName())
+                    .replace("animation", animation)
+                    .send(sender);
         }
-
-        translator.translate("commands.npc.play_animation.playing")
-                .withPrefix()
-                .replace("npc", npc.getData().getName())
-                .replace("animation", animation)
-                .send(sender);
     }
 
     @Suggestions("PlayAnimationCMD/animation")
     public List<String> suggestAnimations(final CommandContext<CommandSender> context, final CommandInput input) {
-        EntityTracker tracker = CustomModelAttribute.getEntityTracker(context.get("npc"));
-        if (tracker == null) return new ArrayList<>();
+        ActiveModel model = CustomModelAttribute.getActiveModel(context.get("npc"));
+        if (model == null) return new ArrayList<>();
 
-        return tracker.renderer().animations().keySet().stream().toList();
+        return model.getBlueprint().getAnimations().keySet().stream().toList();
     }
 }

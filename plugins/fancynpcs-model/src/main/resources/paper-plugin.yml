@@ -16,7 +16,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
-    BetterModel:
+    ModelEngine:
       load: BEFORE
       required: true
       join-classpath: true

@@ -3,11 +3,15 @@ package com.fancyinnovations.fancynpcsmodel.main;
 import com.fancyinnovations.fancynpcsmodel.commands.fancynpcsmodel.FNMConfigCMD;
 import com.fancyinnovations.fancynpcsmodel.commands.fancynpcsmodel.FNMVersionCMD;
 import com.fancyinnovations.fancynpcsmodel.commands.npc.CustomModelCMD;
+import com.fancyinnovations.fancynpcsmodel.commands.npc.IdleAnimationCMD;
+import com.fancyinnovations.fancynpcsmodel.commands.npc.ModelHitboxCMD;
 import com.fancyinnovations.fancynpcsmodel.commands.npc.PlayAnimationCMD;
 import com.fancyinnovations.fancynpcsmodel.config.FancyNpcsModelConfigImpl;
 import com.fancyinnovations.fancynpcsmodel.fancynpcshook.CustomModelAttribute;
 import com.fancyinnovations.fancynpcsmodel.fancynpcshook.PlayAnimationLoopAction;
 import com.fancyinnovations.fancynpcsmodel.fancynpcshook.PlayAnimationOnceAction;
+import com.fancyinnovations.fancynpcsmodel.listeners.ModelAnimationListener;
+import com.fancyinnovations.fancynpcsmodel.listeners.ModelInteractListener;
 import com.fancyinnovations.fancynpcsmodel.listeners.NpcInteractListener;
 import com.fancyinnovations.fancynpcsmodel.listeners.NpcRemoveListener;
 import com.fancyinnovations.fancynpcsmodel.metrics.FNMMetrics;
@@ -80,7 +84,6 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
     public void onLoad() {
         fancyLogger.info("Loading FancyNpcsModel version %s...".formatted(getDescription().getVersion()));
 
-        // Config
         fancyNpcsModelConfig = new FancyNpcsModelConfigImpl();
         fancyNpcsModelConfig.init();
         fancyNpcsModelConfig.reload();
@@ -93,15 +96,12 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
         }
         fancyLogger.setCurrentLevel(logLevel);
 
-        // Version checking
         versionFetcher = new FancySpacesVersionFetcher("FancyNpcsModel");
         versionConfig = new VersionConfig(this, versionFetcher);
         versionConfig.load();
 
-        // Translator
         registerTranslator();
 
-        // Metrics
         metrics = new FNMMetrics();
 
         fancyLogger.info("Successfully loaded FancyNpcsModel version %s".formatted(getDescription().getVersion()));
@@ -116,7 +116,7 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
         }
         if (versionConfig.isDevelopmentBuild()) {
             fancyLogger.warn("""
-                    
+
                     --------------------------------------------------
                     You are using a development build of FancyNpcsModel.
                     Please be aware that there might be bugs in this version.
@@ -126,10 +126,10 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
                     """);
         }
 
-        Bukkit.getServer().getGlobalRegionScheduler().runDelayed(this, (_) -> {
+        Bukkit.getServer().getGlobalRegionScheduler().runDelayed(this, (scheduledTask) -> {
             if (!Bukkit.getPluginManager().isPluginEnabled("FancyNpcs")) {
                 fancyLogger.error("""
-                        
+
                         --------------------------------------------------
                         The FancyNpcs plugin is required for FancyNpcsModel to work properly.
                         Please install the FancyNpcs plugin and restart the server.
@@ -138,15 +138,23 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
                         """);
                 Bukkit.getPluginManager().disablePlugin(this);
             }
-        }, 20L * 20); // 20s
+        }, 20L * 20);
 
         registerCommands();
 
         registerListeners();
 
         FancyNpcsPlugin.get().getAttributeManager().registerAttribute(CustomModelAttribute.getModelAttribute());
+        FancyNpcsPlugin.get().getAttributeManager().registerAttribute(CustomModelAttribute.getIdleAnimationAttribute());
+        FancyNpcsPlugin.get().getAttributeManager().registerAttribute(CustomModelAttribute.getHitboxAttribute());
         FancyNpcsPlugin.get().getActionManager().registerAction(new PlayAnimationOnceAction());
         FancyNpcsPlugin.get().getActionManager().registerAction(new PlayAnimationLoopAction());
+
+        for (Npc npc : FancyNpcsPlugin.get().getNpcManager().getAllNpcs()) {
+            if (CustomModelAttribute.hasAttribute(npc)) {
+                npc.getData().applyAllAttributes(npc);
+            }
+        }
 
         metrics.register();
         metrics.checkIfPluginVersionUpdated();
@@ -160,7 +168,7 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
 
         for (Npc npc : FancyNpcsPlugin.get().getNpcManager().getAllNpcs()) {
             if (CustomModelAttribute.hasAttribute(npc)) {
-                CustomModelAttribute.closeAllTrackers(npc);
+                CustomModelAttribute.removeAllModels(npc);
             }
         }
 
@@ -168,25 +176,27 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
-        // fancynpcsmodel commands
         FancyNpcsPlugin.get().registerCommand(FNMConfigCMD.INSTANCE);
         FancyNpcsPlugin.get().registerCommand(FNMVersionCMD.INSTANCE);
 
-        // npc commands
         FancyNpcsPlugin.get().registerCommand(CustomModelCMD.INSTANCE);
         FancyNpcsPlugin.get().registerCommand(PlayAnimationCMD.INSTANCE);
+        FancyNpcsPlugin.get().registerCommand(IdleAnimationCMD.INSTANCE);
+        FancyNpcsPlugin.get().registerCommand(ModelHitboxCMD.INSTANCE);
     }
 
     private void registerListeners() {
         Bukkit.getPluginManager().registerEvents(new NpcInteractListener(), this);
         Bukkit.getPluginManager().registerEvents(new NpcRemoveListener(), this);
+        Bukkit.getPluginManager().registerEvents(new ModelInteractListener(), this);
+        Bukkit.getPluginManager().registerEvents(new ModelAnimationListener(), this);
     }
 
     public void registerTranslator() {
         translator = new Translator(
                 new TextConfig(
-                        "#ffcc24", // color to highlight important information
-                        "gray", // text color for regular messages
+                        "#ffcc24",
+                        "gray",
                         "#81E366",
                         "#E3CA66",
                         "#E36666",
@@ -207,11 +217,11 @@ public class FancyNpcsModelPlugin extends JavaPlugin {
 
         supplyAsync(getVersionFetcher()::fetchNewestVersion).thenApply(Objects::requireNonNull).whenComplete((newest, error) -> {
             if (error != null || newest.compareTo(current) <= 0) {
-                return; // could not get the newest version or already on latest
+                return;
             }
 
             fancyLogger.warn("""
-                    
+
                     -------------------------------------------------------
                     You are not using the latest version of the FancyNpcsModel plugin.
                     Please update to the newest version (%s).

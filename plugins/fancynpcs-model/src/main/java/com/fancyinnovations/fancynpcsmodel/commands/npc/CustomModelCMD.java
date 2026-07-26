@@ -2,10 +2,10 @@ package com.fancyinnovations.fancynpcsmodel.commands.npc;
 
 import com.fancyinnovations.fancynpcsmodel.fancynpcshook.CustomModelAttribute;
 import com.fancyinnovations.fancynpcsmodel.utils.FancyContext;
+import com.ticxo.modelengine.api.ModelEngineAPI;
 import de.oliver.fancynpcs.api.FancyNpcsPlugin;
 import de.oliver.fancynpcs.api.Npc;
 import de.oliver.fancynpcs.api.NpcAttribute;
-import kr.toxicity.model.api.BetterModel;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 import org.incendo.cloud.annotations.Argument;
@@ -37,7 +37,7 @@ public class CustomModelCMD extends FancyContext {
 
         if (model.equalsIgnoreCase("@none")) {
             npc.getData().removeAttribute(customModelAttribute);
-            CustomModelAttribute.closeAllTrackers(npc);
+            CustomModelAttribute.removeAllModels(npc);
             npc.updateForAll();
 
             translator.translate("commands.npc.custom_model.removed")
@@ -47,7 +47,7 @@ public class CustomModelCMD extends FancyContext {
             return;
         }
 
-        if (BetterModel.model(model).isEmpty()) {
+        if (ModelEngineAPI.getBlueprint(model) == null) {
             translator.translate("common.model_not_found")
                     .withPrefix()
                     .replace("npc", npc.getData().getName())
@@ -71,7 +71,7 @@ public class CustomModelCMD extends FancyContext {
     public List<String> suggestModels(final CommandContext<CommandSender> context, final CommandInput input) {
         return new ArrayList<>() {{
             add("@none");
-            addAll(BetterModel.modelKeys());
+            addAll(ModelEngineAPI.getAPI().getModelRegistry().getKeys());
         }};
     }
 }

@@ -12,13 +12,17 @@ allprojects {
     group = "com.fancyinnovations"
     version = getFNMVersion()
     description = "Addon for FancyNpcs that adds support for custom models"
+
+    repositories {
+        maven(url = "https://mvn.lumine.io/repository/maven-public/")
+    }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
 
     compileOnly(project(":plugins:fancynpcs-v2:fn-v2-api"))
-    compileOnly("io.github.toxicity188:bettermodel-bukkit-api:3.2.0")
+    compileOnly("com.ticxo.modelengine:ModelEngine:R4.1.0")
 
     implementation(project(":libraries:common"))
     implementation(project(":libraries:jdb"))
@@ -42,7 +46,6 @@ tasks {
 
         downloadPlugins {
             modrinth("FancyNpcs", "2.11.0")
-            modrinth("BetterModel", "8xoSUfzr") // 3.2.0
 //            modrinth("FancyDialogs", "1.1.2.53")
 //            modrinth("FancyHolograms", "2.9.1")
 //            modrinth("FancyDialogs", "1.1.2")
